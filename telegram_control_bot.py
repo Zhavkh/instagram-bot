@@ -42,6 +42,7 @@ class TelegramController:
                 'instagram': {
                     'username': '',
                     'password': '',
+                    'proxy': '', # Добавили поле proxy
                     'logged_in': False
                 },
                 'targets': [],
@@ -107,6 +108,18 @@ class TelegramController:
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Отмена", callback_data='settings')]])
             )
             
+        elif query.data == 'set_proxy':
+            context.user_data['state'] = 'WAITING_PROXY'
+            current = self.config['instagram'].get('proxy', 'Нет')
+            await query.edit_message_text(
+                f"🌐 Настройка Прокси\n\n"
+                f"Текущий прокси: {current}\n\n"
+                "Введите прокси в формате:\n"
+                "http://user:pass@host:port\n\n"
+                "Или отправьте 'clear' чтобы удалить прокси.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Отмена", callback_data='settings')]])
+            )
+
         elif query.data == 'set_targets':
             current_targets = ", ".join(self.config.get('targets', [])) or "Нет"
             context.user_data['state'] = 'WAITING_TARGETS'
@@ -146,6 +159,8 @@ class TelegramController:
             ig_status = f"❌ Ошибка: {self.last_error}"
         else:
             ig_status = "✅ Авторизован" if self.config['instagram'].get('logged_in') else "❌ Не авторизован"
+            
+        proxy_status = "✅ Прокси" if self.config['instagram'].get('proxy') else "⚠️ Без прокси (Render IP)"
         
         mode_names = {
             'safe': '🟢 Безопасный',
@@ -160,6 +175,7 @@ class TelegramController:
             f"📊 Статус бота\n\n"
             f"{status_emoji} Бот: {status_text}\n"
             f"📱 Instagram: {ig_status}\n"
+            f"🌐 Сеть: {proxy_status}\n"
             f"⚙️ Режим: {current_mode}\n"
             f"🤖 Авто-режим: {auto_status}\n"
             f"🎯 Целей: {len(self.config.get('targets', []))}\n"
@@ -181,6 +197,7 @@ class TelegramController:
         """Показать настройки"""
         keyboard = [
             [InlineKeyboardButton("🔐 Instagram логин", callback_data='set_instagram')],
+            [InlineKeyboardButton("🌐 Настроить Прокси", callback_data='set_proxy')], # Кнопка прокси
             [InlineKeyboardButton("🎯 Целевая аудитория", callback_data='set_targets')],
             [InlineKeyboardButton("⚙️ Режим работы", callback_data='set_mode')],
             [InlineKeyboardButton("🤖 Авто-режим", callback_data='toggle_auto')],
@@ -302,7 +319,8 @@ class TelegramController:
             # Инициализация
             self.instagram_bot = FollowerBot(
                 username=self.config['instagram']['username'],
-                password=self.config['instagram']['password']
+                password=self.config['instagram']['password'],
+                proxy=self.config['instagram'].get('proxy') # Передаем прокси
             )
             
             
@@ -379,6 +397,21 @@ class TelegramController:
             keyboard = [[InlineKeyboardButton("🔙 В настройки", callback_data='settings')]]
             await update.message.reply_text("Вернуться в меню:", reply_markup=InlineKeyboardMarkup(keyboard))
             
+        elif state == 'WAITING_PROXY':
+             if text.lower() == 'clear':
+                 self.config['instagram']['proxy'] = ''
+                 msg = "🗑️ Прокси удален."
+             else:
+                 self.config['instagram']['proxy'] = text
+                 msg = f"✅ Прокси сохранен: {text}"
+             
+             self._save_config()
+             context.user_data['state'] = None
+             
+             await update.message.reply_text(msg)
+             keyboard = [[InlineKeyboardButton("🔙 В настройки", callback_data='settings')]]
+             await update.message.reply_text("Вернуться в меню:", reply_markup=InlineKeyboardMarkup(keyboard))
+
         elif state == 'WAITING_TARGETS':
             new_targets = [t.strip() for t in text.split(',')]
             
