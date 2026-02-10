@@ -82,6 +82,9 @@ class TelegramController:
         query = update.callback_query
         await query.answer()
         
+        # Сбрасываем состояние ввода
+        context.user_data['state'] = None
+        
         if query.data == 'status':
             await self.show_status(query)
         elif query.data == 'start_bot':
@@ -92,223 +95,109 @@ class TelegramController:
             await self.show_settings(query)
         elif query.data == 'stats':
             await self.show_stats(query)
-        elif query.data == 'mode_safe':
-            await self.change_mode(query, 'safe')
-        elif query.data == 'mode_moderate':
-            await self.change_mode(query, 'moderate')
-        elif query.data == 'mode_aggressive':
-            await self.change_mode(query, 'aggressive')
-        elif query.data == 'toggle_auto':
-            await self.toggle_auto_mode(query)
         elif query.data == 'back_main':
             await self.show_main_menu(query)
-    
-    async def show_status(self, query):
-        """Показать статус бота"""
-        status_emoji = "🟢" if self.bot_running else "🔴"
-        status_text = "Работает" if self.bot_running else "Остановлен"
-        
-        ig_status = "✅ Авторизован" if self.config['instagram'].get('logged_in') else "❌ Не авторизован"
-        
-        mode_names = {
-            'safe': '🟢 Безопасный',
-            'moderate': '🟡 Умеренный',
-            'aggressive': '🔴 Агрессивный'
-        }
-        current_mode = mode_names.get(self.config['mode'], 'Не установлен')
-        
-        auto_status = "✅ Включен" if self.config.get('auto_mode') else "❌ Выключен"
-        
-        text = (
-            f"📊 *Статус бота*\n\n"
-            f"{status_emoji} Бот: {status_text}\n"
-            f"📱 Instagram: {ig_status}\n"
-            f"⚙️ Режим: {current_mode}\n"
-            f"🤖 Авто-режим: {auto_status}\n"
-            f"🎯 Целей: {len(self.config.get('targets', []))}\n"
-        )
-        
-        keyboard = [[InlineKeyboardButton("◀️ Назад", callback_data='back_main')]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-    
-    async def show_settings(self, query):
-        """Показать настройки"""
-        keyboard = [
-            [InlineKeyboardButton("🔐 Instagram логин", callback_data='set_instagram')],
-            [InlineKeyboardButton("🎯 Целевая аудитория", callback_data='set_targets')],
-            [InlineKeyboardButton("⚙️ Режим работы", callback_data='set_mode')],
-            [InlineKeyboardButton("🤖 Авто-режим", callback_data='toggle_auto')],
-            [InlineKeyboardButton("◀️ Назад", callback_data='back_main')],
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(
-            "⚙️ *Настройки*\n\nВыберите что настроить:",
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-    
-    async def show_stats(self, query):
-        """Показать статистику"""
-        if self.instagram_bot:
-            stats = self.instagram_bot.stats
             
-            text = (
-                f"📈 *Статистика сегодня*\n\n"
-                f"➕ Подписались: {stats['followed_today']}\n"
-                f"➖ Отписались: {stats['unfollowed_today']}\n"
-                f"👥 Начало: {stats['start_followers']}\n"
-                f"👥 Сейчас: {stats['current_followers']}\n"
-                f"📊 Прирост: +{stats['followers_gained']}\n"
-            )
-        else:
-            text = "❌ Бот еще не запускался. Статистика недоступна."
-        
-        keyboard = [[InlineKeyboardButton("◀️ Назад", callback_data='back_main')]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-    
-    async def change_mode(self, query, mode: str):
-        """Изменить режим работы"""
-        self.config['mode'] = mode
-        self._save_config()
-        
-        mode_names = {
-            'safe': '🟢 Безопасный (30 подписок)',
-            'moderate': '🟡 Умеренный (50 подписок)',
-            'aggressive': '🔴 Агрессивный (100 подписок)'
-        }
-        
-        await query.answer(f"Режим изменен на {mode_names[mode]}")
-        await self.show_settings(query)
-    
-    async def toggle_auto_mode(self, query):
-        """Переключить авто-режим"""
-        self.config['auto_mode'] = not self.config.get('auto_mode', False)
-        self._save_config()
-        
-        status = "включен" if self.config['auto_mode'] else "выключен"
-        await query.answer(f"Авто-режим {status}")
-        await self.show_settings(query)
-    
-    async def start_instagram_bot(self, query):
-        """Запустить Instagram бота"""
-        if self.bot_running:
-            await query.answer("⚠️ Бот уже работает!")
-            return
-        
-        if not self.config['instagram'].get('username') or not self.config['instagram'].get('password'):
-            await query.answer("❌ Сначала настройте Instagram логин!")
-            return
-        
-        if not self.config.get('targets'):
-            await query.answer("❌ Сначала добавьте целевую аудиторию!")
-            return
-        
-        await query.answer("▶️ Запускаю бота...")
-        
-        # Запуск в отдельном потоке
-        self.bot_thread = threading.Thread(target=self._run_instagram_bot)
-        self.bot_thread.daemon = True
-        self.bot_thread.start()
-        
-        self.bot_running = True
-        
-        await query.edit_message_text(
-            "✅ *Бот запущен!*\n\n"
-            "Бот начал работу. Используйте /status для проверки прогресса.",
-            parse_mode='Markdown'
-        )
-    
-    async def stop_instagram_bot(self, query):
-        """Остановить Instagram бота"""
-        if not self.bot_running:
-            await query.answer("⚠️ Бот не запущен!")
-            return
-        
-        self.bot_running = False
-        await query.answer("⏸️ Останавливаю бота...")
-        
-        await query.edit_message_text(
-            "⏸️ *Бот остановлен*\n\n"
-            "Бот завершит текущую операцию и остановится.",
-            parse_mode='Markdown'
-        )
-    
-    async def show_main_menu(self, query):
-        """Показать главное меню"""
-        keyboard = [
-            [InlineKeyboardButton("📊 Статус", callback_data='status')],
-            [InlineKeyboardButton("▶️ Запустить", callback_data='start_bot'),
-             InlineKeyboardButton("⏸️ Остановить", callback_data='stop_bot')],
-            [InlineKeyboardButton("⚙️ Настройки", callback_data='settings')],
-            [InlineKeyboardButton("📈 Статистика", callback_data='stats')],
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(
-            "🤖 *Instagram Follower Bot Control Panel*\n\n"
-            "Выберите действие:",
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-    
-    def _run_instagram_bot(self):
-        """Запустить Instagram бота (в отдельном потоке)"""
-        try:
-            # Инициализация
-            self.instagram_bot = FollowerBot(
-                username=self.config['instagram']['username'],
-                password=self.config['instagram']['password']
+        # --- Settings Handlers ---
+        elif query.data == 'set_instagram':
+            context.user_data['state'] = 'WAITING_USERNAME'
+            await query.edit_message_text(
+                "🔐 *Настройка Instagram*\n\n"
+                "Введите ваш **Instagram Username**:\n"
+                "(Отправьте текстом в чат)",
+                parse_mode='Markdown',
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Отмена", callback_data='settings')]])
             )
             
-            # Авторизация
-            self.instagram_bot.login()
-            self.config['instagram']['logged_in'] = True
-            self._save_config()
+        elif query.data == 'set_targets':
+            current_targets = ", ".join(self.config.get('targets', [])) or "Нет"
+            context.user_data['state'] = 'WAITING_TARGETS'
+            await query.edit_message_text(
+                f"🎯 *Целевая аудитория*\n\n"
+                f"Текущие цели: `{current_targets}`\n\n"
+                "Отправьте **Username конкурента** (без @) или **Хештег** (без #):\n"
+                "(Можно несколько через запятую)",
+                parse_mode='Markdown',
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Отмена", callback_data='settings')]])
+            )
             
-            # Параметры режима
-            modes = {
-                'safe': {'follows': 30, 'delay': (60, 120)},
-                'moderate': {'follows': 50, 'delay': (40, 80)},
-                'aggressive': {'follows': 100, 'delay': (30, 60)}
-            }
+        elif query.data == 'set_mode':
+            keyboard = [
+                [InlineKeyboardButton("🟢 Безопасный", callback_data='mode_safe')],
+                [InlineKeyboardButton("🟡 Умеренный", callback_data='mode_moderate')],
+                [InlineKeyboardButton("🔴 Агрессивный", callback_data='mode_aggressive')],
+                [InlineKeyboardButton("◀️ Назад", callback_data='settings')]
+            ]
+            await query.edit_message_text(
+                "⚙️ *Выберите режим работы:*",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
             
-            mode_config = modes[self.config['mode']]
+        elif query.data.startswith('mode_'):
+            mode = query.data.replace('mode_', '')
+            await self.change_mode(query, mode)
             
-            # Запуск кампании
-            while self.bot_running:
-                self.instagram_bot.run_follow_campaign(
-                    target_sources=self.config['targets'],
-                    follows_per_session=mode_config['follows'],
-                    delay_range=mode_config['delay']
-                )
-                
-                # Если не авто-режим - останавливаемся после одной сессии
-                if not self.config.get('auto_mode'):
-                    break
-                
-                # Ждем до следующей сессии (например, 4 часа)
-                if self.bot_running:
-                    time.sleep(4 * 60 * 60)
-            
-        except Exception as e:
-            print(f"❌ Error in Instagram bot: {e}")
-            self.bot_running = False
-    
+        elif query.data == 'toggle_auto':
+            await self.toggle_auto_mode(query)
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработчик текстовых сообщений"""
-        text = update.message.text
+        state = context.user_data.get('state')
+        text = update.message.text.strip()
         
-        # Здесь можно добавить обработку текстовых команд
-        # Например, для настройки логина/пароля
-        
-        await update.message.reply_text(
-            "Используйте /start для открытия панели управления."
-        )
+        if not state:
+            # Если нет активного состояния, игнорируем или шлем меню
+            # await self.start(update, context) # Можно раскомментировать
+            return
+
+        if state == 'WAITING_USERNAME':
+            self.config['instagram']['username'] = text
+            self._save_config()
+            
+            context.user_data['state'] = 'WAITING_PASSWORD'
+            await update.message.reply_text(
+                f"✅ Username сохранен: `{text}`\n\n"
+                "Теперь введите ваш **Instagram Пароль**:",
+                parse_mode='Markdown'
+            )
+            
+        elif state == 'WAITING_PASSWORD':
+            self.config['instagram']['password'] = text
+            self._save_config()
+            
+            context.user_data['state'] = None
+            await update.message.reply_text(
+                "✅ **Пароль сохранен!**\n\n"
+                "Логин и пароль настроены. Теперь добавьте целевую аудиторию.",
+                parse_mode='Markdown'
+            )
+            # Показываем настройки снова
+            keyboard = [[InlineKeyboardButton("🔙 В настройки", callback_data='settings')]]
+            await update.message.reply_text("Вернуться в меню:", reply_markup=InlineKeyboardMarkup(keyboard))
+            
+        elif state == 'WAITING_TARGETS':
+            new_targets = [t.strip() for t in text.split(',')]
+            
+            # Добавляем, а не заменяем (или можно заменить)
+            current = self.config.get('targets', [])
+            for t in new_targets:
+                if t not in current:
+                    current.append(t)
+            
+            self.config['targets'] = current
+            self._save_config()
+            
+            context.user_data['state'] = None
+            await update.message.reply_text(
+                f"✅ **Цели добавлены!**\n\n"
+                f"Всего целей: {len(current)}\n"
+                f"Последние добавленные: {', '.join(new_targets)}",
+                parse_mode='Markdown'
+            )
+            keyboard = [[InlineKeyboardButton("🔙 В настройки", callback_data='settings')]]
+            await update.message.reply_text("Вернуться в меню:", reply_markup=InlineKeyboardMarkup(keyboard))
+
     
     def run(self):
         """Запустить Telegram бота"""
