@@ -338,9 +338,38 @@ def main():
         return
     
     print(f"✅ Token loaded: {TELEGRAM_TOKEN[:10]}...")
+    
+    # Для Render.com: запускаем фейковый веб-сервер в отдельном потоке
+    # чтобы Render видел что порт открыт
+    import threading
+    from flask import Flask
+    
+    app = Flask(__name__)
+    
+    @app.route('/')
+    def home():
+        return "✅ Instagram Bot is running!"
+    
+    @app.route('/health')
+    def health():
+        return {"status": "ok", "bot": "running"}
+    
+    # Запускаем Flask в отдельном потоке
+    def run_flask():
+        port = int(os.getenv('PORT', 10000))
+        app.run(host='0.0.0.0', port=port)
+    
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    
+    print(f"✅ Web server started on port {os.getenv('PORT', 10000)}")
+    
+    # Запускаем Telegram бота
     controller = TelegramController(TELEGRAM_TOKEN)
     controller.run()
 
 
 if __name__ == "__main__":
     main()
+
