@@ -17,7 +17,7 @@ from telegram.ext import (
     ContextTypes,
     filters
 )
-from instagram_follower_bot import FollowerBot, ServiceType
+from instagram_follower_bot import FollowerBot
 import threading
 import time
 
@@ -326,18 +326,18 @@ class TelegramController:
 def main():
     """Запуск Telegram контроллера"""
     
-    # ВАЖНО: Замените на ваш Telegram Bot Token
-    # Получить можно у @BotFather в Telegram
-    TELEGRAM_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+    # Получаем токен из переменной окружения (для Render.com)
+    TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', 'YOUR_TELEGRAM_BOT_TOKEN')
     
     if TELEGRAM_TOKEN == "YOUR_TELEGRAM_BOT_TOKEN":
-        print("❌ Ошибка: Установите TELEGRAM_TOKEN!")
+        print("❌ Ошибка: Установите TELEGRAM_BOT_TOKEN!")
         print("1. Откройте Telegram")
         print("2. Найдите @BotFather")
         print("3. Создайте бота командой /newbot")
-        print("4. Скопируйте токен и вставьте в код")
+        print("4. Скопируйте токен и установите переменную окружения TELEGRAM_BOT_TOKEN")
         return
     
+    print(f"✅ Token loaded: {TELEGRAM_TOKEN[:10]}...")
     controller = TelegramController(TELEGRAM_TOKEN)
     controller.run()
 
