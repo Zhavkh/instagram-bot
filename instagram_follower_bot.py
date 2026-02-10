@@ -21,17 +21,23 @@ from instagrapi.exceptions import (
 class FollowerBot:
     """Бот для накрутки подписчиков через Follow/Unfollow"""
     
-    def __init__(self, username: str, password: str, session_file: str = "session.json"):
+    def __init__(self, username: str, password: str, session_file: str = "session.json", proxy: str = None):
         """
         Args:
             username: Instagram username
             password: Instagram password
             session_file: Файл для сохранения сессии
+            proxy: Прокси в формате user:pass@host:port (опционально)
         """
         self.username = username
         self.password = password
         self.session_file = session_file
         self.client = Client()
+        
+        # Настройка прокси
+        if proxy:
+            print(f"🌐 Using proxy: {proxy}")
+            self.client.set_proxy(proxy)
         
         # Статистика
         self.stats = {
