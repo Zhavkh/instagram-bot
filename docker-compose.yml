@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  instagram-bot:
+    build: .
+    container_name: instagram_follower_bot
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./session.json:/app/session.json
+      - ./followed_users.json:/app/followed_users.json
+      - ./bot_config.json:/app/bot_config.json
+    environment:
+      - TZ=Asia/Tashkent
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

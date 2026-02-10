@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: instagram-bot
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TZ
+        value: Asia/Tashkent

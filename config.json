@@ -1,0 +1,41 @@
+{
+  "smm_panels": {
+    "panel1": {
+      "name": "SMM Panel 1",
+      "api_url": "https://api.example1.com/v2",
+      "api_key": "YOUR_API_KEY_1",
+      "description": "Быстрая доставка, высокое качество"
+    },
+    "panel2": {
+      "name": "SMM Panel 2",
+      "api_url": "https://api.example2.com/v2",
+      "api_key": "YOUR_API_KEY_2",
+      "description": "Средние цены, стабильная работа"
+    },
+    "panel3": {
+      "name": "SMM Panel 3",
+      "api_url": "https://api.example3.com/v2",
+      "api_key": "YOUR_API_KEY_3",
+      "description": "Низкие цены, массовые заказы"
+    }
+  },
+  
+  "default_settings": {
+    "panel": "panel1",
+    "quality": "high",
+    "check_interval": 60,
+    "auto_refill": false
+  },
+  
+  "instagram_account": {
+    "username": "your_username",
+    "profile_url": "https://www.instagram.com/your_username/"
+  },
+  
+  "order_limits": {
+    "min_followers": 100,
+    "max_followers": 50000,
+    "min_likes": 50,
+    "max_likes": 100000
+  }
+}
