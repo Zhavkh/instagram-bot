@@ -142,7 +142,10 @@ class TelegramController:
         status_emoji = "🟢" if self.bot_running else "🔴"
         status_text = "Работает" if self.bot_running else "Остановлен"
         
-        ig_status = "✅ Авторизован" if self.config['instagram'].get('logged_in') else "❌ Не авторизован"
+        if hasattr(self, 'last_error') and self.last_error:
+            ig_status = f"❌ Ошибка: {self.last_error}"
+        else:
+            ig_status = "✅ Авторизован" if self.config['instagram'].get('logged_in') else "❌ Не авторизован"
         
         mode_names = {
             'safe': '🟢 Безопасный',
@@ -165,7 +168,14 @@ class TelegramController:
         keyboard = [[InlineKeyboardButton("◀️ Назад", callback_data='back_main')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(text, reply_markup=reply_markup)
+        if hasattr(query, 'edit_message_text'):
+             await query.edit_message_text(text, reply_markup=reply_markup)
+        else:
+             await query.reply_text(text, reply_markup=reply_markup)
+
+    async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Обработчик команды /status"""
+        await self.show_status(update.message)
     
     async def show_settings(self, query):
         """Показать настройки"""
@@ -295,9 +305,16 @@ class TelegramController:
                 password=self.config['instagram']['password']
             )
             
+            
+            # Сбрасываем ошибку перед запуском
+            self.last_error = None
+
             # Авторизация
             self.instagram_bot.login()
             self.config['instagram']['logged_in'] = True
+            
+            # Если логин успешен, тоже сбрасываем ошибку (на всякий случай)
+            self.last_error = None
             self._save_config()
             
             # Параметры режима
@@ -326,7 +343,9 @@ class TelegramController:
                     time.sleep(4 * 60 * 60)
             
         except Exception as e:
-            print(f"❌ Error in Instagram bot: {e}")
+            error_msg = str(e)
+            print(f"❌ Error in Instagram bot: {error_msg}")
+            self.last_error = error_msg # Сохраняем ошибку для вывода в TG
             self.bot_running = False
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -387,6 +406,7 @@ class TelegramController:
         
         # Handlers
         app.add_handler(CommandHandler("start", self.start))
+        app.add_handler(CommandHandler("status", self.status_command))  # Добавили обработчик команды /status
         app.add_handler(CallbackQueryHandler(self.button_handler))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
         
